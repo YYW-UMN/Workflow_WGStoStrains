@@ -1,0 +1,134 @@
+---
+title: "SNP clustering"
+output: html_notebook
+---
+
+```{r}
+library(VariantAnnotation)
+library(Matrix)
+```
+
+* read vcf 
+```{r}
+v <- readRDS('~/Dropbox/mixed/original/Map_K10_VBC_CLI.whitelist.noindel.rds')
+```
+
+* adding the metadata to column data
+```{r}
+mt <- read.csv('~/Dropbox/mixed/meta/MetaDATAJohnes2.csv', header = TRUE)
+rownames(mt) <- mt$SeqID
+mt <- mt[colnames(v), ]
+colData(v) <- cbind(colData(v), mt)
+head(mt)
+```
+* The genotype matrix 
+```{r}
+GT <- geno(v)$GT
+GT[GT %in% c('.')] <- '0/0'
+GT[GT%in% c('0/2', '0/3')] <- '0/1'
+GT[1:5,1:5]
+```
+* convert to sparse format
+```{r}
+gt <- data.frame(i = rep(1:nrow(GT), ncol(GT)), j = rep(1:ncol(GT), each = nrow(GT)), genotype = c(GT))
+gt_homo <- gt[gt$genotype == '1/1', ]
+gt_hetero <- gt[gt$genotype == '0/1', ]
+
+X <- rbind(
+  sparseMatrix(i = gt_homo[, 1], j = gt_homo[, 2], dims = c(nrow(GT), ncol(GT))),
+  sparseMatrix(i = gt_hetero[, 1], j = gt_hetero[, 2], dims = c(nrow(GT), ncol(GT)))
+)
+rownames(X) <- c(sprintf('%s_1/1', rownames(GT)), sprintf('%s_0/1', rownames(GT)))
+colnames(X) <- colnames(GT)
+X <- as(X, 'dgCMatrix')
+X <- X[rowSums(X > 0) >= 2& rowSums(X != 0) <= ncol(X) - 2, ]
+X <- as.matrix(X)
+X[1:5,1:5]
+```
+* Frequency of SNPs
+```{r}
+hist(rowSums(X),n = 100)
+```
+
+
+* Visualize the SNP matrix
+```{r, fig.width = 12, fig.height = 12}
+library(ComplexHeatmap)
+library(circlize)
+col_fun <- structure(c('white', 'black'), names = c(0, 1))
+rownames(X) <- NULL
+colnames(X) <- NULL
+Heatmap(X, name = "mat", col = col_fun, show_column_dend = TRUE, show_row_dend = TRUE)
+```
+* 1. Genotype data: Add genetic consequence label 
+```{r}
+consq <- data.frame(names(coding),coding$CONSEQUENCE)
+colnames(consq) <- c('pos','consequence')
+#pos <- rownames(GT)
+#GT2 <- cbind(pos,GT)
+#GT_consq <- merge(consq,GT2, by = 'pos')
+#GT_consq[1:5,1:5]
+```
+* only SNPs presented in more than 1 samples were kept for analysis
+```{r}
+gt <- geno(v)$GT
+gt[gt %in% c('.')] <- '0/0'
+gt[gt %in% c('0/2', '0/3')] <- '0/1'
+gt <- gt[rowSums(gt != '0/0') >= 2, ]
+pos <- rownames(gt)
+gt <- cbind(pos,gt)
+gtcons <- merge(consq,gt, by = 'pos')
+```
+* Filter out synonymous SNPs (no amino acid changes)
+```{r}
+gtcons[1:5,1:5]
+library(dplyr)
+selected <- filter(gtcons, consequence != 'synonymous')
+gt <- selected
+gt[1:5,1:5]
+```
+* Run clustering analysis again
+```{r}
+x01 <- matrix(0, nrow(gt), ncol(gt))
+x01[gt == '0/1'] <- 1
+x01 <- x01[rowSums(x01 == 0) >= 5 & rowSums(x01 ==1) >= 5, ]
+x11 <- matrix(0, nrow(gt), ncol(gt))
+x11[gt == '1/1'] <- 1
+x11 <- x11[rowSums(x11 == 0) >= 5 & rowSums(x11 ==1) >= 5, ]
+s <- svd(x01)
+```
+* use top 7 PCs that can explain > 85% variance in the data. 
+```{r}
+plot(head(cumsum(s$d^2 / sum(s$d^2)), 20), type = 'b')
+abline(v = 7, col = 'blue', lty = 2)
+```
+* visualize the results
+```{r}
+k <- 8
+set.seed(1); cls <- kmeans(y, k)$cluster
+plot(y[, 1], y[, 2], pch = 21, bg = cls)
+```
+* 2. Allelel frequency: add genetic consequence label 
+```{r}
+ro <- geno(v)$RO
+dp <- geno(v)$DP
+af <- 1 - ro / dp 
+af[is.na(af)] <- 0
+```
+* only SNPs presented in more than 1 samples were kept for analysis
+```{r}
+af <- af[rowSums(gt != '0/0') >= 2, ]
+pos <- rownames(af)
+af <- cbind(pos,af)
+afcons <- merge(consq,af, by = 'pos')
+afcons[1:5,1:5]
+
+s <- svd(afcons)
+# use top 5 PCs that can explain >80% variance in the data. 
+plot(head(cumsum(s$d^2 / sum(s$d^2)), 20), type = 'b')
+```
+
+
+
+
+
