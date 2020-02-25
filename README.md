@@ -14,6 +14,8 @@ Process raw variant calling files to characterize SNP patterns from WGS data
 Vcf files from running the WGS pipeline https://bitbucket.org/jgarbe/gopher-pipelines/src/default/ on https://www.msi.umn.edu.  
 
 ### 1. Creat BSgenome packages from reference genome
+Follow this tutorial to create the R package for each reference genome
+https://www.bioconductor.org/packages//2.7/bioc/vignettes/BSgenome/inst/doc/BSgenomeForge.pdf
 <p align="center">
 <img src="https://github.com/YYW-UMN/Workflow_WGStoStrains/blob/master/Figures/BSgenome%20PackageExample.png" width="500" />
 </p>
