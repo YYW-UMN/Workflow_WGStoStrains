@@ -11,6 +11,8 @@ Process raw variant calling files to characterize SNP patterns from WGS data
 - Gene annotation files
 
 ## Steps in the workflow:
+Vcf files from running the WGS pipeline https://bitbucket.org/jgarbe/gopher-pipelines/src/default/ on https://www.msi.umn.edu.  
+
 ### 1. Creat BSgenome packages from reference genome
 <p align="center">
 <img src="https://github.com/YYW-UMN/Workflow_WGStoStrains/blob/master/Figures/BSgenome%20PackageExample.png" width="500" />
